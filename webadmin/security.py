@@ -129,7 +129,13 @@ class SessionStore:
         return self._get_db()[SESSION_COLLECTION]
 
     async def init(self) -> None:
-        await self._col().create_index("expires", expireAfterSeconds=0)
+        col = self._col()
+        # Purana unique index (older version) hata do: wo sid_hash=null pe DuplicateKeyError deta tha
+        try:
+            await col.drop_index("sid_hash_1")
+        except Exception:
+            pass
+        await col.create_index("expires", expireAfterSeconds=0)
 
     async def create(self, ip: str, ua: str):
         """-> (cookie_value, csrf_token, expires_datetime)"""
