@@ -28,6 +28,7 @@ from config import (
     ADS_REQUIRED,
     AD_VERIFY_MODE,
     BLOCK_NON_VALUED,
+    BASE_URL,
     DIRECT_MINIAPP,
     MINIAPP_SHORT_NAME,
     MIN_AD_SECONDS,
