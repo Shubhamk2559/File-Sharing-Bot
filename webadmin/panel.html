@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Admin Panel</title>
+<style>
+  :root { color-scheme: dark; --bg:#0f141a; --surface:#171e26; --surface2:#1e2731; --ink:#e8eef3; --muted:#93a2b0; --line:#2b3641;
+          --accent:#6f9bff; --ok:#52c783; --warn:#e89a61; --bad:#f07b7b; --focus:#6f9bff; }
+  * { box-sizing:border-box; }
+  html,body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; font-variant-numeric:tabular-nums; }
+  a { color:var(--accent); }
+  button,input,select,textarea { font:inherit; color:inherit; }
+  input,select,textarea { background:var(--bg); border:1px solid var(--line); border-radius:6px; padding:7px 10px; max-width:100%; }
+  input[type=checkbox] { width:auto; }
+  textarea { width:100%; min-height:90px; resize:vertical; }
+  button { background:var(--accent); color:#0b1220; border:0; border-radius:6px; padding:7px 14px; font-weight:650; cursor:pointer; }
+  button.ghost { background:transparent; color:var(--ink); border:1px solid var(--line); }
+  button.danger { background:var(--bad); color:#1a0b0b; }
+  button.sm { padding:3px 9px; font-size:13px; }
+  button:disabled { opacity:.5; cursor:default; }
+  :focus-visible { outline:2px solid var(--focus); outline-offset:2px; }
+  .app { display:grid; grid-template-columns:210px minmax(0,1fr); min-height:100vh; } .app > div { min-width:0; }
+  nav { background:var(--surface); border-right:1px solid var(--line); padding:14px 10px; position:sticky; top:0; height:100vh; overflow:auto; }
+  nav h1 { font-size:16px; margin:0 6px 12px; }
+  nav button { display:block; width:100%; text-align:left; background:transparent; color:var(--ink); font-weight:500; margin:2px 0; padding:8px 10px; }
+  nav button.on { background:var(--surface2); color:var(--accent); font-weight:650; }
+  nav .foot { margin-top:14px; border-top:1px solid var(--line); padding-top:10px; }
+  main { padding:18px; min-width:0; max-width:1150px; width:100%; }
+  .topbar { display:none; }
+  section,.card { background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:16px 18px; margin:0 0 16px; }
+  h2 { font-size:17px; margin:0 0 12px; } h3 { font-size:15px; margin:14px 0 8px; }
+  .muted { color:var(--muted); font-size:13px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; }
+  .stat { background:var(--surface2); border-radius:8px; padding:10px 12px; } .stat b { display:block; font-size:21px; } .stat span { color:var(--muted); font-size:12.5px; }
+  .row { display:flex; flex-wrap:wrap; gap:8px 12px; align-items:center; margin:8px 0; }
+  .row label { display:flex; flex-direction:column; gap:3px; font-size:13px; color:var(--muted); }
+  .tablewrap { overflow-x:auto; } table { border-collapse:collapse; width:100%; min-width:560px; }
+  th,td { text-align:left; padding:7px 9px; border-bottom:1px solid var(--line); vertical-align:top; } th { color:var(--muted); font-size:12.5px; font-weight:600; white-space:nowrap; }
+  .tag { display:inline-block; font-size:11.5px; padding:0 8px; border-radius:10px; border:1px solid var(--line); color:var(--muted); }
+  .tag.ok { color:var(--ok); border-color:var(--ok); } .tag.bad { color:var(--bad); border-color:var(--bad); } .tag.warn { color:var(--warn); border-color:var(--warn); }
+  .bar { height:8px; background:var(--surface2); border-radius:6px; overflow:hidden; } .bar i { display:block; height:100%; background:var(--accent); }
+  .tabs { display:flex; flex-wrap:wrap; gap:6px; margin:0 0 12px; } .tabs button { background:var(--surface2); color:var(--ink); font-weight:500; } .tabs button.on { background:var(--accent); color:#0b1220; }
+  #toast { position:fixed; right:14px; bottom:14px; z-index:50; display:grid; gap:8px; max-width:min(420px,calc(100vw - 28px)); }
+  #toast div { background:var(--surface2); border:1px solid var(--line); border-left:4px solid var(--ok); padding:9px 12px; border-radius:6px; word-break:break-word; } #toast div.err { border-left-color:var(--bad); }
+  .overlay { position:fixed; inset:0; background:rgba(0,0,0,.6); display:grid; place-items:center; z-index:40; padding:14px; }
+  .modal { background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:18px; width:min(560px,100%); max-height:92vh; overflow:auto; }
+  .logbox { background:var(--bg); border:1px solid var(--line); border-radius:6px; padding:8px; max-height:150px; overflow:auto; font:12px/1.4 ui-monospace,Menlo,monospace; white-space:pre-wrap; word-break:break-word; }
+  pre.json { background:var(--bg); border:1px solid var(--line); border-radius:6px; padding:8px; overflow:auto; max-height:320px; font-size:12px; }
+  .login { max-width:380px; margin:12vh auto; padding:0 14px; }
+  .kv td:first-child { color:var(--muted); width:38%; }
+  @media (max-width:820px) {
+    .app { grid-template-columns:minmax(0,1fr); } nav { display:none; position:fixed; inset:0 30% 0 0; z-index:30; height:100vh; } nav.open { display:block; }
+    .topbar { display:flex; align-items:center; gap:10px; padding:10px 14px; background:var(--surface); border-bottom:1px solid var(--line); position:sticky; top:0; z-index:20; }
+    main { padding:12px; }
+  }
+  @media (prefers-reduced-motion:reduce) { * { transition:none !important; } }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<div id="toast" role="status" aria-live="polite"></div>
+<script nonce="__NONCE__">
+"use strict";
+const S = { csrf: null, totp: false, page: "dashboard", timers: [] };
+const $ = (s, r) => (r || document).querySelector(s);
+
+/* ---------- DOM helpers: text is always set via textContent / createTextNode (never assigned as markup) ---------- */
+function h(tag, props, ...kids) {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(props || {})) {
+    if (v === undefined || v === null || v === false) continue;
+    if (k === "class") el.className = v;
+    else if (k === "text") el.textContent = v;
+    else if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
+    else if (k === "value") el.value = v;
+    else if (k === "checked") el.checked = !!v;
+    else el.setAttribute(k, v === true ? "" : v);
+  }
+  for (const c of kids.flat(3)) { if (c === null || c === undefined || c === false) continue; el.append(c.nodeType ? c : document.createTextNode(String(c))); }
+  return el;
+}
+const clear = (el) => { while (el.firstChild) el.removeChild(el.firstChild); return el; };
+function toast(msg, bad) { const t = h("div", { class: bad ? "err" : "", text: msg }); $("#toast").append(t); setTimeout(() => t.remove(), bad ? 8000 : 3500); }
+function fmt(v) {
+  if (v === null || v === undefined || v === "") return "—";
+  if (typeof v === "number" && v > 1e9 && v < 4e9) return new Date(v * 1000).toLocaleString();
+  if (typeof v === "string" && /^\d{4}-\d{2}-\d{2}T/.test(v)) { const d = new Date(v); return isNaN(d) ? v : d.toLocaleString(); }
+  return String(v);
+}
+function table(head, rows) {
+  if (!rows.length) return h("p", { class: "muted", text: "Nothing here yet." });
+  return h("div", { class: "tablewrap" }, h("table", {}, h("thead", {}, h("tr", {}, head.map((x) => h("th", { text: x })))), h("tbody", {}, rows.map((r) => h("tr", {}, r.map((c) => h("td", {}, c)))))));
+}
+function stat(label, val) { return h("div", { class: "stat" }, h("b", { text: val === undefined || val === null ? "—" : String(val) }), h("span", { text: label })); }
+function tag(text, kind) { return h("span", { class: "tag " + (kind || ""), text }); }
+function field(label, input) { return h("label", {}, label, input); }
+function tree(v, depth) {            // generic read-only renderer for report objects
+  depth = depth || 0;
+  if (v === null || typeof v !== "object") return document.createTextNode(fmt(v));
+  const entries = Array.isArray(v) ? v.map((x, i) => [i, x]) : Object.entries(v);
+  if (!entries.length) return document.createTextNode("—");
+  if (Array.isArray(v) && v.every((x) => x && typeof x === "object" && !Array.isArray(x)) && depth < 3) {
+    const cols = [...new Set(v.flatMap((x) => Object.keys(x)))].slice(0, 10);
+    return table(cols, v.map((x) => cols.map((c) => (x[c] !== null && typeof x[c] === "object" ? h("code", { text: JSON.stringify(x[c]).slice(0, 120) }) : fmt(x[c])))));
+  }
+  return h("table", { class: "kv", style: "min-width:0" }, h("tbody", {}, entries.map(([k, x]) => h("tr", {}, h("td", { text: String(k) }), h("td", {}, depth > 3 ? JSON.stringify(x) : tree(x, depth + 1))))));
+}
+
+/* ---------- API ---------- */
+async function api(method, path, body, opt) {
+  opt = opt || {};
+  const headers = { "X-CSRF-Token": S.csrf || "" };
+  let payload;
+  if (opt.raw !== undefined) { headers["Content-Type"] = opt.raw.type || "application/octet-stream"; payload = opt.raw; }
+  else if (body !== undefined && body !== null) { headers["Content-Type"] = "application/json"; payload = JSON.stringify(body); }
+  Object.assign(headers, opt.headers || {});
+  let r;
+  try { r = await fetch("/admin/api" + path, { method, headers, body: payload, credentials: "same-origin" }); }
+  catch (e) { throw new Error("Network error"); }
+  if (opt.blob && r.ok) return r;
+  let data = {};
+  try { data = await r.json(); } catch (e) { /* non-json */ }
+  if (r.status === 401 && path !== "/login") { S.csrf = null; showLogin(data.totp_required); throw new Error("Session expired - please log in"); }
+  if (!r.ok || data.ok === false) { const e = new Error(data.error || ("HTTP " + r.status)); e.data = data; e.status = r.status; throw e; }
+  return data;
+}
+async function act(fn, okMsg) { try { const r = await fn(); if (okMsg) toast(okMsg); return r; } catch (e) { toast(e.message, true); return null; } }
+function busy(btn, fn) { return async (ev) => { btn = ev.currentTarget; btn.disabled = true; try { await fn(ev); } finally { btn.disabled = false; } }; }
+
+/* ---------- confirm dialog (typed phrase / ADMIN_PASSWORD when asked) ---------- */
+function confirmBox(title, message, opt) {
+  opt = opt || {};
+  return new Promise((resolve) => {
+    const pw = opt.password ? h("input", { type: "password", autocomplete: "off", placeholder: "ADMIN_PASSWORD" }) : null;
+    const typed = opt.phrase ? h("input", { type: "text", autocomplete: "off", placeholder: 'Type "' + opt.phrase + '"' }) : null;
+    const ok = h("button", { class: "danger", text: opt.label || "Confirm" });
+    const done = (v) => { ov.remove(); resolve(v); };
+    const ov = h("div", { class: "overlay" }, h("div", { class: "modal", role: "dialog", "aria-modal": "true" },
+      h("h2", { text: title }), h("p", { text: message }), typed && h("div", { class: "row" }, typed), pw && h("div", { class: "row" }, pw),
+      h("div", { class: "row" }, ok, h("button", { class: "ghost", text: "Cancel", onclick: () => done(null) }))));
+    ok.addEventListener("click", () => { if (typed && typed.value.trim() !== opt.phrase) { toast("Type the phrase exactly to continue", true); return; } done({ password: pw ? pw.value : undefined }); });
+    document.body.append(ov); (typed || pw || ok).focus();
+  });
+}
+function modal(title, ...content) {
+  const ov = h("div", { class: "overlay", onclick: (e) => { if (e.target === ov) ov.remove(); } },
+    h("div", { class: "modal", role: "dialog", "aria-modal": "true" }, h("div", { class: "row" }, h("h2", { text: title, style: "margin:0 auto 0 0" }), h("button", { class: "ghost sm", text: "Close", onclick: () => ov.remove() })), content));
+  document.body.append(ov); return ov;
+}
+
+/* ---------- background jobs: poll + Stop ---------- */
+function jobCard(jobId, title, onDone) {
+  const bar = h("i", { style: "width:0%" }), status = h("span"), prog = h("div", { class: "muted" }), logs = h("div", { class: "logbox", hidden: "" });
+  const stop = h("button", { class: "danger sm", text: "Stop", onclick: busy(null, async () => { await act(() => api("POST", "/jobs/" + jobId + "/stop", {}), "Stop requested"); }) });
+  const card = h("div", { class: "card" }, h("div", { class: "row" }, h("b", { text: title }), status, stop), h("div", { class: "bar" }, bar), prog, logs);
+  let alive = true;
+  async function tick() {
+    if (!alive || !card.isConnected) return;
+    let j;
+    try { j = (await api("GET", "/jobs/" + jobId)).job; } catch (e) { if (card.isConnected) setTimeout(tick, 4000); return; }
+    const p = j.progress || {}, total = p.total || 0, cur = p.i || p.n || p.done || p.scanned || p.copied || 0;
+    bar.style.width = (j.status === "done" ? 100 : total ? Math.min(100, Math.round((cur / total) * 100)) : 4) + "%";
+    clear(status).append(tag(j.status + (j.stop_requested && j.status === "running" ? " (stopping…)" : ""), j.status === "done" ? "ok" : j.status === "failed" ? "bad" : "warn"));
+    prog.textContent = Object.entries(p).map(([k, v]) => k + ": " + v).join("  •  ") + (j.error ? "  •  error: " + j.error : "");
+    if (j.logs && j.logs.length) { logs.hidden = false; logs.textContent = j.logs.slice(-30).map((l) => new Date(l.t * 1000).toLocaleTimeString() + "  " + l.m).join("\n"); }
+    if (j.status === "running") setTimeout(tick, 1500);
+    else { stop.hidden = true; alive = false; if (j.result && Object.keys(j.result).length) card.append(h("div", {}, tree(j.result))); if (onDone) onDone(j); }
+  }
+  tick(); return card;
+}
+
+/* ---------- shell ---------- */
+const PAGES = [["dashboard", "Dashboard"], ["bots", "Bots"], ["files", "Files"], ["post", "Create Post"], ["bulk", "Bulk Posts"], ["copy", "Copy Chats"],
+  ["autopost", "Auto Posting"], ["ads", "Smart Ads"], ["monetag", "Monetag"], ["settings", "Settings"], ["activity", "Activity log"]];
+const VIEWS = {};
+function clearTimers() { S.timers.forEach(clearInterval); S.timers = []; }
+function showLogin(totp) {
+  S.totp = !!totp; clearTimers(); const root = clear($("#root"));
+  const pw = h("input", { type: "password", autocomplete: "current-password", placeholder: "Admin panel password", style: "width:100%" });
+  const code = h("input", { type: "text", inputmode: "numeric", autocomplete: "one-time-code", placeholder: "6-digit code", maxlength: "8", style: "width:100%", hidden: totp ? null : "" });
+  const err = h("p", { class: "muted", style: "color:var(--bad)" });
+  const go = async () => {
+    err.textContent = "";
+    try { const d = await api("POST", "/login", { password: pw.value, totp: code.value || null }); S.csrf = d.csrf; pw.value = ""; start(); }
+    catch (e) { err.textContent = e.message; if (e.data && e.data.totp_required) code.hidden = false; }
+  };
+  [pw, code].forEach((i) => i.addEventListener("keydown", (e) => { if (e.key === "Enter") go(); }));
+  root.append(h("div", { class: "login" }, h("div", { class: "card" }, h("h2", { text: "Admin sign in" }), h("div", { class: "row" }, pw), h("div", { class: "row" }, code), h("div", { class: "row" }, h("button", { text: "Sign in", onclick: busy(null, go) })), err)));
+  pw.focus();
+}
+function shell() {
+  clearTimers(); const root = clear($("#root")); const view = h("main", { id: "view" });
+  const navEl = h("nav", {}, h("h1", { text: "Admin Panel" }), PAGES.map(([k, t]) => h("button", { class: k === S.page ? "on" : "", "data-p": k, text: t, onclick: () => go(k) })),
+    h("div", { class: "foot" }, h("button", { text: "Sign out", onclick: async () => { await act(() => api("POST", "/logout", {})); S.csrf = null; showLogin(S.totp); } }),
+      h("button", { text: "Sign out everywhere", onclick: async () => { if (await confirmBox("Sign out everywhere", "All admin sessions will be revoked.", { label: "Revoke all" })) { await act(() => api("POST", "/logout-all", {})); S.csrf = null; showLogin(S.totp); } } })));
+  const top = h("div", { class: "topbar" }, h("button", { class: "ghost", text: "☰ Menu", onclick: () => navEl.classList.toggle("open") }), h("b", { id: "ttl" }));
+  root.append(top, h("div", { class: "app" }, navEl, h("div", {}, view)));
+  go(S.page);
+}
+function go(p) {
+  S.page = p; clearTimers();
+  document.querySelectorAll("nav button[data-p]").forEach((b) => b.classList.toggle("on", b.dataset.p === p));
+  const nav = $("nav"); if (nav) nav.classList.remove("open"); const t = $("#ttl"); if (t) t.textContent = (PAGES.find((x) => x[0] === p) || [0, ""])[1];
+  const v = clear($("#view")); v.append(h("p", { class: "muted", text: "Loading…" }));
+  Promise.resolve(VIEWS[p](v)).catch((e) => { clear(v).append(h("p", { style: "color:var(--bad)", text: e.message })); });
+}
+function render(v, ...nodes) { clear(v).append(...nodes); }
+function pager(page, pages, set) {
+  return h("div", { class: "row" }, h("button", { class: "ghost sm", text: "‹ Prev", disabled: page <= 0 ? "" : null, onclick: () => set(page - 1) }), h("span", { class: "muted", text: "Page " + (page + 1) + " / " + pages }),
+    h("button", { class: "ghost sm", text: "Next ›", disabled: page + 1 >= pages ? "" : null, onclick: () => set(page + 1) }));
+}
+async function upload(path, file, query) {
+  const q = new URLSearchParams(Object.assign({ filename: file.name }, query || {})).toString();
+  return api("POST", path + (path.includes("?") ? "&" : "?") + q, null, { raw: file });
+}
+
+/* ---------- Dashboard ---------- */
+VIEWS.dashboard = async (v) => {
+  const d = await api("GET", "/dashboard"); const st = d.stats, se = d.sessions, ap = d.autoposter;
+  const max = Math.max(1, ...st.last_days.map((x) => x.views));
+  render(v, h("h2", { text: "Dashboard" }),
+    h("section", {}, h("div", { class: "grid" }, stat("Files", st.files), stat("Views today", st.views_today), stat("Views total", st.views_total),
+      stat("Bots (running/total)", d.bots.filter((b) => b.running).length + " / " + d.bots.length), stat("Users in last " + Math.round(se.window_seconds / 60) + " min", se.users),
+      stat("Verification sessions", se.sessions), stat("Delivered", se.delivered), stat("Role", d.role)),
+      h("p", { class: "muted", text: "The bot keeps no permanent user list: 'users' counts distinct people with a verification session inside the session window." })),
+    h("section", {}, h("h3", { text: "Views - last 7 days" }), h("div", { class: "grid" }, st.last_days.map((x) => h("div", { class: "stat" }, h("b", { text: x.views }), h("div", { class: "bar" }, h("i", { style: "width:" + Math.round((x.views / max) * 100) + "%" })), h("span", { text: x.day }))))),
+    ap && h("section", {}, h("h3", { text: "Auto Posting" }), h("div", { class: "grid" }, stat("Targets", ap.total_channels + ap.total_groups), stat("Total posts", ap.total_posts), stat("Remaining", ap.remaining_posts),
+      stat("Published today", ap.published_today), stat("Cycles done", ap.total_cycles_completed), stat("Paused", ap.paused), stat("Next post", fmt(ap.next_post_time)))),
+    h("section", {}, h("h3", { text: "Running jobs" }), d.running_jobs.length ? d.running_jobs.map((j) => jobCard(j.id, j.title)) : h("p", { class: "muted", text: "No background jobs running." })),
+    h("p", { class: "muted", text: "Smart Ads: " + (d.smart_ads_enabled ? "enabled" : "off") }));
+};
+
+/* ---------- Bots ---------- */
+VIEWS.bots = async (v) => {
+  const d = await api("GET", "/bots"); const out = h("div");
+  const tok = h("input", { type: "password", autocomplete: "off", placeholder: "Paste new bot token", style: "min-width:260px" });
+  const reload = () => go("bots");
+  render(v, h("h2", { text: "Bots" }),
+    h("section", {}, h("div", { class: "row" }, tok, h("button", { text: "Add bot", onclick: busy(null, async () => { const r = await act(() => api("POST", "/bots", { token: tok.value }), "Bot added"); tok.value = ""; if (r) reload(); }) }),
+      h("button", { class: "ghost", text: "Check all", onclick: busy(null, async () => { await act(() => api("POST", "/bots/check-all", {}), "Checked"); reload(); }) })),
+      h("p", { class: "muted", text: "Tokens are only sent to the server once and are never shown again." })),
+    h("section", {}, table(["Bot", "Status", "Running", "Added", "Actions"], d.bots.map((b) => [
+      "@" + (b.username || b.bot_id), tag(b.status || "?", b.status === "active" ? "ok" : b.status === "disabled" ? "bad" : "warn"), b.running ? tag("yes", "ok") : tag("no"), fmt(b.added_at),
+      h("div", { class: "row", style: "margin:0" },
+        h("button", { class: "ghost sm", text: "Health", onclick: busy(null, async () => { const r = await act(() => api("GET", "/bots/" + b.bot_id + "/health")); if (r) render(out, h("div", { class: "card" }, h("h3", { text: "Health: @" + (b.username || b.bot_id) }), tree(r.health))); }) }),
+        b.status === "disabled" ? h("button", { class: "sm", text: "Enable", onclick: busy(null, async () => { await act(() => api("POST", "/bots/" + b.bot_id + "/enable", {}), "Enabled"); reload(); }) })
+          : h("button", { class: "ghost sm", text: "Disable", onclick: busy(null, async () => { await act(() => api("POST", "/bots/" + b.bot_id + "/disable", {}), "Disabled"); reload(); }) }),
+        h("button", { class: "danger sm", text: "Remove", onclick: async () => { if (await confirmBox("Remove bot", "Remove @" + (b.username || b.bot_id) + "? Its webhook is released.", { label: "Remove" })) { await act(() => api("POST", "/bots/" + b.bot_id + "/remove", { confirm: true }), "Removed"); reload(); } } }))]))), out);
+};
+
+/* ---------- Files ---------- */
+const FS = { page: 0, q: "", kind: "", sel: new Set() };
+VIEWS.files = async (v) => {
+  const d = await api("GET", "/files?page=" + FS.page + "&size=15&q=" + encodeURIComponent(FS.q) + "&kind=" + FS.kind);
+  const q = h("input", { type: "search", placeholder: "Search token / caption", value: FS.q }), kind = h("select", {}, [["", "All"], ["file", "Files"], ["post", "Posts"]].map(([k, t]) => h("option", { value: k, text: t })));
+  kind.value = FS.kind;
+  const search = () => { FS.q = q.value; FS.kind = kind.value; FS.page = 0; FS.sel.clear(); go("files"); };
+  q.addEventListener("keydown", (e) => { if (e.key === "Enter") search(); });
+  const cap = h("input", { type: "text", placeholder: "Caption (optional)", maxlength: "900", style: "min-width:220px" }), file = h("input", { type: "file" }), mode = h("select", {}, h("option", { value: "everywhere", text: "Delete everywhere (channels + record)" }), h("option", { value: "record", text: "Record only (keep channel copies)" }));
+  const out = h("div");
+  render(v, h("h2", { text: "Files" }),
+    h("section", {}, h("h3", { text: "Upload" }), h("div", { class: "row" }, file, cap, h("button", { text: "Upload", onclick: busy(null, async () => {
+      if (!file.files[0]) return toast("Choose a file", true);
+      const r = await act(() => upload("/files/upload", file.files[0], { caption: cap.value }), "Uploaded"); if (r) { render(out, h("div", { class: "card" }, "Link: ", h("a", { href: r.link, text: r.link, target: "_blank", rel: "noopener" }), r.warn ? h("p", { class: "muted", text: "Backup copy warning: " + r.warn }) : null)); file.value = ""; cap.value = ""; }
+    }) })), out, h("p", { class: "muted", text: "Max 50 MB (Telegram Bot API limit)." })),
+    h("section", {}, h("div", { class: "row" }, q, kind, h("button", { text: "Search", onclick: search }), h("span", { class: "muted", text: d.total + " total" })),
+      table(["", "Token", "Type", "Caption", "Views", "Created", ""], d.items.map((f) => [
+        h("input", { type: "checkbox", checked: FS.sel.has(f.token), onchange: (e) => { e.target.checked ? FS.sel.add(f.token) : FS.sel.delete(f.token); } }),
+        h("code", { text: f.token }), tag(f.kind + (f.items ? " (" + f.items + ")" : "")), (f.kind === "post" ? f.post_caption : f.caption).slice(0, 60), f.views, fmt(f.created_at),
+        h("button", { class: "ghost sm", text: "Open", onclick: () => fileDetail(f.token) })])),
+      pager(d.page, d.pages, (p) => { FS.page = p; go("files"); }),
+      h("div", { class: "row" }, mode, h("button", { class: "danger", text: "Delete selected", onclick: async () => {
+        const toks = [...FS.sel]; if (!toks.length) return toast("Select files first", true);
+        const everywhere = mode.value === "everywhere";
+        const c = await confirmBox("Delete " + toks.length + " file(s)", everywhere ? "Removes the channel messages AND the records. This cannot be undone." : "Removes only the database records; channel copies stay.", { label: "Delete", phrase: toks.length > 1 ? "DELETE" : null });
+        if (!c) return; const r = await act(() => api("POST", "/files/delete", { tokens: toks, mode: mode.value, confirm: true }), "Deleted");
+        FS.sel.clear(); if (r && r.job_id) { render(out, jobCard(r.job_id, "Deleting files", () => go("files"))); } else go("files"); } }))));
+};
+async function fileDetail(token) {
+  const d = (await api("GET", "/files/" + token)).file; const cap = h("textarea", { maxlength: "1024" }); cap.value = d.kind === "post" ? d.post_caption : d.caption;
+  const ov = modal("File " + token, h("table", { class: "kv", style: "min-width:0" }, h("tbody", {}, [["Type", d.kind], ["Views", d.views], ["Videos in post", d.items], ["Stored copies", d.copies], ["Created", fmt(d.created_at)], ["Channel posts", d.channel_posts]].map(([a, b]) => h("tr", {}, h("td", { text: a }), h("td", { text: String(b) }))))),
+    h("div", { class: "row" }, h("a", { href: d.link, target: "_blank", rel: "noopener", text: d.link }), h("button", { class: "ghost sm", text: "Copy link", onclick: () => navigator.clipboard && navigator.clipboard.writeText(d.link).then(() => toast("Copied")) })),
+    h("h3", { text: "Caption" }), cap, h("div", { class: "row" }, h("button", { text: "Save caption", onclick: busy(null, async () => { await act(() => api("POST", "/files/" + token + "/caption", { caption: cap.value }), "Saved"); }) })),
+    d.kind === "post" ? h("div", { class: "row" }, h("button", { class: "ghost", text: "Preview to my chat", onclick: busy(null, async () => { await act(() => api("POST", "/posts/" + token + "/preview", {}), "Preview sent to the owner chat"); }) }),
+      h("button", { text: "Post to channel", onclick: async () => { if (await confirmBox("Post to channel", "Publish this post to POST_CHANNEL now?", { label: "Post" })) await act(() => api("POST", "/posts/" + token + "/channel", { confirm: true }), "Posted"); } })) : null,
+    h("div", { class: "row" }, h("button", { class: "danger", text: "Delete everywhere", onclick: async () => { if (await confirmBox("Delete file", "Removes channel copies and the record.", { label: "Delete" })) { const r = await act(() => api("POST", "/files/delete", { tokens: [token], mode: "everywhere", confirm: true }), "Deleted"); if (r) { ov.remove(); go("files"); } } } }),
+      h("button", { class: "ghost", text: "Delete record only", onclick: async () => { if (await confirmBox("Delete record", "Channel copies are kept.", { label: "Delete" })) { const r = await act(() => api("POST", "/files/delete", { tokens: [token], mode: "record", confirm: true }), "Deleted"); if (r) { ov.remove(); go("files"); } } } })));
+}
+
+/* ---------- Create Post ---------- */
+VIEWS.post = async (v) => {
+  const d = await api("GET", "/posts/draft"), dr = d.draft; const out = h("div");
+  const th = h("input", { type: "file", accept: "image/*,video/*" }), vids = h("input", { type: "file", accept: "video/*,.gif", multiple: "" }), cap = h("textarea", { maxlength: "1024", placeholder: "Caption (empty = default POST_CAPTION)" });
+  if (dr) cap.value = dr.caption || "";
+  const reload = () => go("post");
+  render(v, h("h2", { text: "Create Post" }),
+    h("section", {}, h("p", { class: "muted", text: "1 thumbnail (image/GIF/video) + up to " + d.max_videos + " videos → one link, one button. Videos are saved to both storage channels as you upload." }),
+      h("h3", { text: "1. Thumbnail " }), dr && dr.thumb ? tag("uploaded (" + dr.thumb_type + ")", "ok") : tag("missing", "warn"),
+      h("div", { class: "row" }, th, h("button", { text: "Upload thumbnail", onclick: busy(null, async () => { if (!th.files[0]) return toast("Choose a file", true); if (await act(() => upload("/posts/draft/thumb", th.files[0]), "Thumbnail set")) reload(); }) })),
+      h("h3", { text: "2. Videos (" + (dr ? dr.videos.length : 0) + " / " + d.max_videos + ")" }),
+      h("div", { class: "row" }, vids, h("button", { text: "Upload videos", onclick: busy(null, async () => {
+        const fs = [...vids.files]; if (!fs.length) return toast("Choose video file(s)", true);
+        for (const f of fs) { toast("Uploading " + f.name + "…"); if (!(await act(() => upload("/posts/draft/video", f)))) break; }
+        reload(); }) })),
+      dr && dr.videos.length ? table(["#", "Copies", ""], dr.videos.map((x, i) => [i + 1, x.copies, h("button", { class: "ghost sm", text: "Remove", onclick: busy(null, async () => { await act(() => api("POST", "/posts/draft/video/" + i + "/remove", {})); reload(); }) })])) : null,
+      h("h3", { text: "3. Caption" }), cap,
+      h("div", { class: "row" }, h("button", { text: "Create post", onclick: busy(null, async () => {
+        const r = await act(() => api("POST", "/posts/draft/finalize", { caption: cap.value || null }), "Post created"); if (!r) return;
+        render(out, h("div", { class: "card" }, h("h3", { text: "Post ready" }), h("p", {}, h("a", { href: r.link, target: "_blank", rel: "noopener", text: r.link })), r.preview_sent ? h("p", { class: "muted", text: "Preview sent to the owner chat." }) : null,
+          h("div", { class: "row" }, d.post_channel ? h("button", { text: "Post to channel", onclick: async () => { if (await confirmBox("Post to channel", "Publish now?", { label: "Post" })) await act(() => api("POST", "/posts/" + r.token + "/channel", { confirm: true }), "Posted"); } }) : h("span", { class: "muted", text: "Set POST_CHANNEL to enable posting to a channel." }),
+            h("button", { class: "ghost", text: "New post", onclick: reload })))); v.querySelectorAll("section").forEach((s) => s.hidden = true); v.append(out); }) }),
+        h("button", { class: "ghost", text: "Save caption", onclick: busy(null, async () => { await act(() => api("POST", "/posts/draft/caption", { caption: cap.value }), "Saved"); }) }),
+        h("button", { class: "danger", text: "Discard draft", onclick: async () => { if (await confirmBox("Discard draft", "Uploaded videos are removed from the channels again.", { label: "Discard" })) { await act(() => api("POST", "/posts/draft/discard", {}), "Discarded"); reload(); } } }))), out);
+};
+
+/* ---------- Bulk posts ---------- */
+VIEWS.bulk = async (v) => {
+  const d = await api("GET", "/bulk"); const out = h("div"), s = h("input", { type: "text", placeholder: "https://t.me/c/123456789/15", style: "min-width:260px" }), e = h("input", { type: "text", placeholder: "https://t.me/c/123456789/90", style: "min-width:260px" });
+  const mode = h("select", {}, h("option", { value: "default", text: "Default caption (POST_CAPTION)" }), h("option", { value: "original", text: "Original channel caption" }));
+  const publish = (id, to) => async () => {
+    if (to && !(await confirmBox("Post all to channel", "Posts the whole batch to POST_CHANNEL in order. Already-posted items are skipped, so this also resumes.", { label: "Post" }))) return;
+    const r = await act(() => api("POST", "/bulk/batches/" + id + (to ? "/post" : "/preview"), { to_channel: !!to })); if (r) render(out, jobCard(r.job_id, to ? "Posting batch " + id : "Preview batch " + id, () => go("bulk")));
+  };
+  render(v, h("h2", { text: "Bulk Posts" }),
+    h("section", {}, h("p", { class: "muted", text: "Pick a range in a channel (first and last post link). Caption posts become thumbnails; the caption-less videos below each become one link. The bot must be admin of that channel." }),
+      h("div", { class: "row" }, field("Start link", s), field("End link", e), field("Caption", mode)),
+      h("div", { class: "row" }, h("button", { text: "Start scan", onclick: busy(null, async () => { const r = await act(() => api("POST", "/bulk/scan", { start_link: s.value, end_link: e.value, mode: mode.value })); if (r) render(out, jobCard(r.job_id, "Bulk " + r.range[0] + "–" + r.range[1], () => go("bulk"))); }) }))), out,
+    h("section", {}, h("h3", { text: "Batches" }), table(["Batch", "Posts", "Posted to channel", "Created", ""], d.batches.map((b) => [h("code", { text: b.id }), b.total, b.posted + " / " + b.total, fmt(b.created_at),
+      h("div", { class: "row", style: "margin:0" }, h("button", { class: "ghost sm", text: "Preview", onclick: busy(null, publish(b.id, false)) }), d.post_channel ? h("button", { class: "sm", text: b.posted && b.posted < b.total ? "Resume posting" : "Post all", onclick: publish(b.id, true) }) : null)]))),
+      !d.post_channel ? h("p", { class: "muted", text: "POST_CHANNEL is not set - posting to a channel is unavailable." }) : null),
+    h("section", {}, h("h3", { text: "Danger zone" }), h("p", { class: "muted", text: d.bulk_posts + " bulk-made posts exist." }),
+      h("button", { class: "danger", text: "Delete ALL bulk posts", onclick: async () => { if (await confirmBox("Delete all bulk posts", "Deletes every bulk-made post everywhere (channels + records). Cannot be undone.", { label: "Delete all", phrase: "DELETE" })) { const r = await act(() => api("POST", "/bulk/delete-all", { confirm: true })); if (r) render(out, jobCard(r.job_id, "Deleting bulk posts", () => go("bulk"))); } } }));
+};
+
+/* ---------- Copy chats ---------- */
+VIEWS.copy = async (v) => {
+  const d = await api("GET", "/copy/accounts"); const out = h("div"), wiz = h("div");
+  const step = (kind) => {
+    const inp = h("input", { type: kind === "phone" ? "tel" : kind === "password" ? "password" : "text", autocomplete: "off", placeholder: kind === "phone" ? "+919876543210" : kind === "code" ? "Code from Telegram" : "2-step password" });
+    const btn = h("button", { text: "Continue", onclick: busy(null, async () => {
+      const r = await act(() => api("POST", "/copy/login/" + kind, kind === "phone" ? { phone: inp.value } : kind === "code" ? { code: inp.value } : { password: inp.value })); inp.value = ""; if (!r) return;
+      if (r.step === "done") { toast("Account added: " + r.account.name); go("copy"); } else render(wiz, step(r.step));
+    }) });
+    return h("div", { class: "row" }, h("b", { text: kind === "phone" ? "Phone number" : kind === "code" ? "Login code" : "2-step password" }), inp, btn, h("button", { class: "ghost", text: "Cancel", onclick: async () => { await act(() => api("POST", "/copy/login/cancel", {})); clear(wiz); } }));
+  };
+  render(v, h("h2", { text: "Copy Chats" }),
+    h("section", {}, h("div", { class: "row" }, h("button", { text: "Add account", onclick: () => render(wiz, step("phone")) }), d.login_pending ? tag("a login is in progress", "warn") : null), wiz,
+      h("p", { class: "muted", text: "Sessions stay encrypted on the server; they are never sent to your browser. Sources with 'restrict saving content' cannot be copied." }),
+      table(["Account", "Phone", "Added", ""], d.accounts.map((a) => [a.name, a.phone, fmt(a.added_at), h("div", { class: "row", style: "margin:0" },
+        h("button", { class: "sm", text: "Open", onclick: () => copyAccount(a, out) }),
+        h("button", { class: "danger sm", text: "Remove", onclick: async () => { if (await confirmBox("Remove account", "Logs " + a.name + " out of Telegram and deletes the saved session.", { label: "Remove" })) { await act(() => api("POST", "/copy/accounts/" + a.uid + "/remove", { confirm: true }), "Removed"); go("copy"); } } }))]))), out);
+};
+async function copyAccount(a, out) {
+  const sel = { src: null, dest: null }, list = h("div"), q = h("input", { type: "search", placeholder: "Filter chats / paste @username or t.me link" }), info = h("div", { class: "muted" });
+  const kinds = ["photo", "video", "file"].map((k) => h("input", { type: "checkbox", value: k, checked: true })), capOnly = h("input", { type: "checkbox" }), resume = h("input", { type: "checkbox", checked: true }), jobs = h("div");
+  const label = (c) => (c ? c.title + " (" + c.kind + ")" : "—"), show = () => { info.textContent = "Source: " + label(sel.src) + "   →   Destination: " + label(sel.dest); };
+  async function load() {
+    const r = await act(() => api("GET", "/copy/accounts/" + a.uid + "/chats?q=" + encodeURIComponent(q.value.startsWith("@") || q.value.includes("t.me/") ? "" : q.value))); if (!r) return;
+    render(list, table(["Chat", "Kind", ""], r.chats.map((c) => [c.title, c.kind, h("div", { class: "row", style: "margin:0" }, h("button", { class: "ghost sm", text: "Source", onclick: () => { sel.src = c; show(); checkResume(); } }), c.dest ? h("button", { class: "ghost sm", text: "Destination", onclick: () => { sel.dest = c; show(); checkResume(); } }) : null)])));
+  }
+  async function checkResume() { if (sel.src && sel.dest) { const r = await act(() => api("GET", "/copy/progress?uid=" + a.uid + "&src=" + sel.src.id + "&dest=" + sel.dest.id)); if (r && r.resume_from) info.textContent += "   •   resume available after message #" + r.resume_from; } }
+  q.addEventListener("keydown", async (e) => { if (e.key !== "Enter") return; if (q.value.startsWith("@") || q.value.includes("t.me/")) { const r = await act(() => api("POST", "/copy/resolve", { uid: a.uid, text: q.value })); if (r) { render(list, table(["Chat", "Kind", ""], [[r.chat.title, r.chat.kind, h("div", { class: "row", style: "margin:0" }, h("button", { class: "ghost sm", text: "Source", onclick: () => { sel.src = r.chat; show(); } }), r.chat.dest ? h("button", { class: "ghost sm", text: "Destination", onclick: () => { sel.dest = r.chat; show(); } }) : null)]])); } } else load(); });
+  render(out, h("section", {}, h("h3", { text: "Account: " + a.name }), h("div", { class: "row" }, q, h("button", { text: "Load chats", onclick: busy(null, load) })), list, info,
+    h("div", { class: "row" }, ["Photos", "Videos", "Files"].map((t, i) => h("label", { style: "flex-direction:row;align-items:center" }, kinds[i], t)), h("label", { style: "flex-direction:row;align-items:center" }, capOnly, "Only items with captions"), h("label", { style: "flex-direction:row;align-items:center" }, resume, "Resume from last position")),
+    h("div", { class: "row" }, h("button", { text: "Start copy", onclick: busy(null, async () => {
+      if (!sel.src || !sel.dest) return toast("Pick a source and a destination", true);
+      const r = await act(() => api("POST", "/copy/start", { uid: a.uid, src: sel.src.id, dest: sel.dest.id, kinds: kinds.filter((k) => k.checked).map((k) => k.value), caption_only: capOnly.checked, resume: resume.checked })); if (r) render(jobs, jobCard(r.job_id, "Copy " + label(sel.src) + " → " + label(sel.dest))); }) })), jobs));
+  load();
+}
+
+/* ---------- Auto Posting ---------- */
+const AP = { cid: null, tab: "queue" };
+VIEWS.autopost = async (v) => { if (AP.cid) return apTarget(v); return apHome(v); };
+async function apHome(v) {
+  const d = await api("GET", "/autopost/overview"), st = d.stats, ref = h("input", { type: "text", placeholder: "@channel, t.me/channel or -100123…" }), out = h("div"), file = h("input", { type: "file", accept: ".json,.gz" });
+  render(v, h("h2", { text: "Auto Posting" }),
+    h("section", {}, h("div", { class: "grid" }, stat("Total posts", st.total_posts), stat("Remaining", st.remaining_posts), stat("Published today", st.published_today), stat("Cycles", st.total_cycles_completed), stat("Channels", st.total_channels), stat("Groups", st.total_groups), stat("Paused", st.paused), stat("Next post", fmt(st.next_post_time)), stat("DB ping", d.health.db_ping_ms === null ? "—" : d.health.db_ping_ms + " ms"))),
+    h("section", {}, h("h3", { text: "Add channel / group" }), h("div", { class: "row" }, ref, h("button", { text: "Add", onclick: busy(null, async () => { if (await act(() => api("POST", "/autopost/targets", { ref: ref.value }), "Target added")) go("autopost"); }) })), h("p", { class: "muted", text: "The bot must already be admin there (channels: with Post messages permission)." })),
+    h("section", {}, h("h3", { text: "Targets" }), table(["Target", "Type", "State", "Interval", "Batch", "Window", "Next post", ""], d.targets.map((t) => [t.title, t.type, t.is_active ? tag("active", "ok") : tag("paused", "warn"), t.schedule.interval_minutes + " min", t.schedule.batch_size, t.schedule.start_time + "–" + t.schedule.end_time, fmt(t.next_post_time),
+      h("button", { class: "sm", text: "Open", onclick: () => { AP.cid = t.chat_id; AP.tab = "queue"; go("autopost"); } })]))),
+    h("section", {}, h("h3", { text: "Backup & restore" }), h("div", { class: "row" }, h("button", { text: "Download backup", onclick: busy(null, async () => { const r = await act(() => api("GET", "/autopost/backup", null, { blob: true })); if (!r) return; const b = await r.blob(), n = (r.headers.get("Content-Disposition") || "").match(/filename="([^"]+)"/); const a = h("a", { href: URL.createObjectURL(b), download: n ? n[1] : "backup.json" }); document.body.append(a); a.click(); a.remove(); }) })),
+      h("div", { class: "row" }, file, h("button", { class: "danger", text: "Restore backup", onclick: async () => { if (!file.files[0]) return toast("Choose a backup file", true); const c = await confirmBox("Restore backup", "Replaces the posts of every target contained in the file.", { label: "Restore", password: d.settings.password_gate }); if (!c) return;
+        const r = await act(() => api("POST", "/autopost/restore?confirm=1", null, { raw: file.files[0], headers: c.password ? { "X-Admin-Password": c.password } : {} })); if (r) toast("Restored " + r.chats + " targets, " + r.posts + " posts"); } }))),
+    h("section", {}, h("h3", { text: "Settings & health (read-only, from environment)" }), tree(d.settings), h("p", { class: "muted", text: "Uptime: " + Math.round(d.health.uptime_seconds / 60) + " min. Change these via environment variables." })),
+    h("section", {}, h("h3", { text: "Logs" }), h("button", { class: "ghost", text: "Load recent logs", onclick: busy(null, async () => { const r = await act(() => api("GET", "/autopost/logs?limit=60")); if (r) render(out, table(["Level", "Event", "When", "Detail"], r.logs.map((l) => [l.level, l.event, fmt(l.at), h("code", { text: l.detail })]))); }) }), out),
+    h("section", {}, h("h3", { text: "Danger zone" }), h("button", { class: "danger", text: "Wipe ALL auto-posting data", onclick: async () => { const c = await confirmBox("Wipe everything", "Deletes every target, post, history entry and log of Auto Posting. Cannot be undone.", { label: "Wipe all", phrase: "WIPE", password: d.settings.password_gate }); if (c) { await act(() => api("POST", "/autopost/wipe-all", { confirm: true, admin_password: c.password }), "Wiped"); go("autopost"); } } })));
+}
+async function apTarget(v) {
+  const d = await api("GET", "/autopost/targets/" + AP.cid), t = d.target, base = "/autopost/targets/" + AP.cid, body = h("div");
+  const tabs = [["queue", "Queue"], ["schedule", "Schedule"], ["options", "Options"], ["posts", "Posts"], ["add", "Add posts"], ["tools", "Promo & Force-sub"], ["danger", "Danger"]];
+  const reload = () => go("autopost");
+  const tabBar = h("div", { class: "tabs" }, tabs.map(([k, n]) => h("button", { class: k === AP.tab ? "on" : "", text: n, onclick: () => { AP.tab = k; reload(); } })));
+  render(v, h("div", { class: "row" }, h("button", { class: "ghost", text: "‹ All targets", onclick: () => { AP.cid = null; reload(); } }), h("h2", { style: "margin:0", text: t.title }), t.is_active ? tag("active", "ok") : tag("paused", "warn"), d.running ? tag("publishing…", "warn") : null), tabBar, body);
+  const T = {
+    queue: () => [h("section", {}, h("div", { class: "grid" }, stat("Total posts", d.queue.total), stat("Used this cycle", d.queue.used), stat("Remaining", d.queue.remaining), stat("Cycle #", d.queue.cycle), stat("Published today", d.published_today), stat("Shuffle", d.queue.shuffle_status), stat("Last posted", fmt(d.queue.last_posted_at)), stat("Next post", fmt(t.next_post_time))),
+      t.last_error ? h("p", { style: "color:var(--bad)", text: "Last error: " + t.last_error }) : null, t.pause_reason ? h("p", { class: "muted", text: "Paused: " + t.pause_reason }) : null,
+      h("h3", { text: "Last 7 days" }), h("div", { class: "grid" }, d.history.map((x) => stat(x.day, x.posts))),
+      h("div", { class: "row" }, h("button", { text: t.is_active ? "Pause" : "Resume", onclick: busy(null, async () => { await act(() => api("POST", base + "/active", { active: !t.is_active }), t.is_active ? "Paused" : "Resumed"); reload(); }) }),
+        h("button", { class: "ghost", text: "Run next batch now", onclick: busy(null, async () => { const r = await act(() => api("POST", base + "/run", {})); if (r) render(body, jobCard(r.job_id, "Publishing batch", reload)); }) }),
+        h("button", { class: "ghost", text: "Reshuffle queue", onclick: busy(null, async () => { await act(() => api("POST", base + "/reshuffle", {}), "Reshuffled"); }) })))],
+    schedule: () => {
+      const s = t.schedule, F = { i: h("input", { type: "number", min: "1", value: s.interval_minutes }), b: h("input", { type: "number", min: "1", max: "50", value: s.batch_size }), st: h("input", { type: "time", value: s.start_time }), en: h("input", { type: "time", value: s.end_time }), j: h("input", { type: "number", min: "0", value: t.options.jitter_minutes }) };
+      const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((n, i) => h("label", { style: "flex-direction:row;align-items:center" }, h("input", { type: "checkbox", "data-d": i, checked: (s.days || [0, 1, 2, 3, 4, 5, 6]).includes(i) }), n));
+      return [h("section", {}, h("div", { class: "row" }, field("Interval (minutes)", F.i), field("Batch size", F.b), field("Window start", F.st), field("Window end", F.en), field("Random jitter (min)", F.j)), h("div", { class: "row" }, days),
+        h("p", { class: "muted", text: "Times use " + "the server timezone. Overnight windows (end before start) are supported." }),
+        h("button", { text: "Save schedule", onclick: busy(null, async () => { const ds = days.map((l) => l.firstChild).filter((c) => c.checked).map((c) => +c.dataset.d); if (!ds.length) return toast("Pick at least one day", true);
+          await act(() => api("POST", base + "/schedule", { interval_minutes: +F.i.value, batch_size: +F.b.value, start_time: F.st.value, end_time: F.en.value, days: ds, jitter_minutes: +F.j.value }), "Schedule saved"); reload(); }) }))];
+    },
+    options: () => {
+      const o = t.options, ck = (k, l) => { const c = h("input", { type: "checkbox", checked: o[k] }); c.addEventListener("change", async () => { await act(() => api("POST", base + "/options", { [k]: c.checked }), "Saved"); }); return h("label", { style: "flex-direction:row;align-items:center" }, c, l); };
+      const ad = h("select", {}, [[0, "Off"], [60, "1 hour"], [360, "6 hours"], [720, "12 hours"], [1440, "24 hours"], [2880, "48 hours"], [10080, "7 days"]].map(([k, n]) => h("option", { value: k, text: n }))); ad.value = o.auto_delete_minutes;
+      const ft = h("textarea", { maxlength: "1000", placeholder: "HTML footer appended to every post" }); ft.value = o.footer || "";
+      return [h("section", {}, h("div", { class: "row" }, ck("loop", "Loop (restart after a full cycle)"), ck("dedupe", "Skip duplicates"), ck("notify_cycle", "DM admins when a cycle completes")),
+        h("div", { class: "row" }, field("Auto-delete published posts after", ad), h("button", { class: "ghost sm", text: "Save", onclick: busy(null, async () => { await act(() => api("POST", base + "/options", { auto_delete_minutes: +ad.value }), "Saved"); }) })),
+        h("h3", { text: "Footer" }), ft, h("div", { class: "row" }, h("button", { text: "Save footer", onclick: busy(null, async () => { await act(() => api("POST", base + "/options", { footer: ft.value }), ft.value ? "Footer saved" : "Footer removed"); }) }), h("span", { class: "muted", text: "Empty removes the footer. Max 400 visible characters." })))];
+    },
+    posts: () => { const holder = h("section"); postsList(holder, base, 0); return [holder]; },
+    add: () => addPosts(base),
+    tools: () => { const promo = h("textarea", { maxlength: "4000", placeholder: "Prompt / promo message (HTML)" }), fs = h("input", { type: "text", placeholder: "@channel or -100…  (off = remove)", value: t.force_sub_channel || "" });
+      return [h("section", {}, h("h3", { text: "Pinned promo message" }), promo, h("div", { class: "row" }, h("button", { text: "Send & pin", onclick: busy(null, async () => { if (await act(() => api("POST", base + "/promo", { text: promo.value }), "Sent and pinned")) promo.value = ""; }) })), h("p", { class: "muted", text: "A previously pinned prompt is unpinned automatically." }),
+        h("h3", { text: "Force-sub gate" }), h("div", { class: "row" }, fs, h("button", { text: "Save", onclick: busy(null, async () => { await act(() => api("POST", base + "/force-sub", { ref: fs.value }), "Saved"); }) })), h("p", { class: "muted", text: "Join requests are approved only after the user joined this channel. Needs 'Approve new members' ON and the bot admin in both channels." }))]; },
+    danger: () => [h("section", {}, h("p", { class: "muted", text: "These need confirmation" + " (and ADMIN_PASSWORD when it is configured)." }),
+      h("div", { class: "row" }, h("button", { class: "danger", text: "Wipe posts of this target", onclick: async () => { const c = await confirmBox("Wipe posts", "Deletes all posts, history and queue progress for " + t.title + ".", { label: "Wipe", phrase: "WIPE", password: true }); if (c) { await act(() => api("POST", base + "/wipe", { confirm: true, admin_password: c.password || null }), "Wiped"); reload(); } } }),
+        h("button", { class: "danger", text: "Remove target", onclick: async () => { const c = await confirmBox("Remove target", "Removes " + t.title + " with all its posts, schedule and queue.", { label: "Remove", phrase: "REMOVE", password: true }); if (c) { await act(() => api("POST", base + "/remove", { confirm: true, admin_password: c.password || null }), "Removed"); AP.cid = null; reload(); } } })))],
+  };
+  render(body, ...T[AP.tab]());
+}
+async function postsList(holder, base, page) {
+  const d = await api("GET", base + "/posts?page=" + page + "&size=10");
+  render(holder, table(["Post", "Type", "Used", "Added", ""], d.posts.map((p) => [p.label, p.media_type, p.used ? tag("yes") : tag("no", "ok"), fmt(p.created_at), h("div", { class: "row", style: "margin:0" },
+    h("button", { class: "ghost sm", text: "Preview", onclick: busy(null, async () => { await act(() => api("POST", base + "/posts/" + p.id + "/preview", {}), "Preview sent to the owner chat"); }) }),
+    h("button", { class: "ghost sm", text: "Send now", onclick: async () => { if (await confirmBox("Send now", "Publish this post to the channel immediately?", { label: "Send" })) await act(() => api("POST", base + "/posts/" + p.id + "/send", {}), "Sent"); } }),
+    h("button", { class: "danger sm", text: "Delete", onclick: async () => { if (await confirmBox("Delete post", "Removes it from the rotation permanently.", { label: "Delete" })) { await act(() => api("POST", base + "/posts/" + p.id + "/delete", { confirm: true }), "Deleted"); postsList(holder, base, page); } } }))])),
+    h("p", { class: "muted", text: d.total + " posts" }), pager(page, d.pages, (n) => postsList(holder, base, n)),
+    h("button", { class: "ghost", text: "Undo last added post", onclick: async () => { if (await confirmBox("Undo last post", "Removes the most recently added post.", { label: "Undo" })) { await act(() => api("POST", base + "/undo", { confirm: true }), "Removed"); postsList(holder, base, 0); } } }));
+}
+function addPosts(base) {
+  const res = (r) => toast("Inserted " + r.inserted + ", duplicates " + r.duplicates + (r.invalid ? ", invalid " + r.invalid : ""));
+  const txt = h("textarea", { maxlength: "8000", placeholder: "Text post (HTML allowed)" }), bulk = h("input", { type: "file", accept: ".txt,.json,.jsonl" }), media = h("input", { type: "file" }), mcap = h("input", { type: "text", placeholder: "Caption (optional)", maxlength: "1024", style: "min-width:240px" });
+  const album = h("input", { type: "file", accept: "image/*,video/*", multiple: "" }), acap = h("input", { type: "text", placeholder: "Album caption (optional)", maxlength: "1024", style: "min-width:240px" });
+  const f1 = h("input", { type: "text", placeholder: "First post link  https://t.me/c/123/120", style: "min-width:260px" }), f2 = h("input", { type: "text", placeholder: "Last post link", style: "min-width:260px" });
+  return [h("section", {}, h("h3", { text: "Text post" }), txt, h("div", { class: "row" }, h("button", { text: "Add text post", onclick: busy(null, async () => { const r = await act(() => api("POST", base + "/posts/text", { text: txt.value })); if (r) { res(r); txt.value = ""; } }) }))),
+    h("section", {}, h("h3", { text: "Photo / video / GIF / document / audio" }), h("div", { class: "row" }, media, mcap, h("button", { text: "Upload & add", onclick: busy(null, async () => { if (!media.files[0]) return toast("Choose a file", true); const r = await act(() => upload(base + "/posts/media", media.files[0], { caption: mcap.value })); if (r) { res(r); media.value = ""; } }) }))),
+    h("section", {}, h("h3", { text: "Album (2–10 photos/videos)" }), h("div", { class: "row" }, album, acap, h("button", { text: "Upload & add album", onclick: busy(null, async () => {
+      const fs = [...album.files]; if (fs.length < 2 || fs.length > 10) return toast("Choose 2 to 10 files", true);
+      const items = []; for (const f of fs) { toast("Uploading " + f.name + "…"); const r = await act(() => upload("/autopost/stage-media", f)); if (!r) return; if (!["photo", "video"].includes(r.media.media_type)) return toast(f.name + " is not a photo/video", true); items.push({ media_type: r.media.media_type, file_id: r.media.file_id, file_unique_id: r.media.file_unique_id }); }
+      const r = await act(() => api("POST", base + "/posts/album", { items, caption: acap.value || null })); if (r) { res(r); album.value = ""; } }) }))),
+    h("section", {}, h("h3", { text: "Bulk file (.txt split by a --- line, .json, .jsonl)" }), h("div", { class: "row" }, bulk, h("button", { text: "Import file", onclick: busy(null, async () => { const f = bulk.files[0]; if (!f) return toast("Choose a file", true); if (f.size > 8e6) return toast("File too large (max 8 MB)", true);
+      const body = await f.text(); const r = await act(() => api("POST", base + "/posts/bulk", { filename: f.name, text: body })); if (r) { res(r); bulk.value = ""; } }) }))),
+    h("section", {}, h("h3", { text: "Import from a source channel" }), h("p", { class: "muted", text: "Bot must be admin in the source channel. Up to 5000 posts per import." }), h("div", { class: "row" }, f1, f2, h("button", { text: "Import range", onclick: busy(null, async () => { const r = await act(() => api("POST", base + "/import", { first_link: f1.value, last_link: f2.value })); if (r) { toast("Inserted " + r.inserted + ", duplicates " + r.duplicates + (r.vault === "no_admin" ? " (vault archive skipped: bot is not admin there)" : "")); } }) })))];
+}
+
+/* ---------- Smart Ads / Monetag ---------- */
+VIEWS.ads = async (v) => {
+  const st = await api("GET", "/ads/status"); if (!st.enabled) return render(v, h("h2", { text: "Smart Ads" }), h("section", {}, h("p", { text: "Smart Ads is off. Set SMART_ADS_ENABLED=true and redeploy to use it." })));
+  const [ov, cf, rw] = await Promise.all([api("GET", "/ads/overview?days=7"), api("GET", "/ads/config"), api("GET", "/ads/rewards?limit=30")]);
+  const ta = h("textarea", { style: "min-height:220px;font-family:ui-monospace,monospace;font-size:12.5px" }); ta.value = JSON.stringify(cf.config, null, 2);
+  const day = h("input", { type: "date" }), net = h("select", {}, st.networks.map((n) => h("option", { value: n, text: n }))), rev = h("input", { type: "number", step: "0.01", min: "0", placeholder: "USD" });
+  render(v, h("h2", { text: "Smart Ads" }), h("section", {}, h("h3", { text: "Last 7 days" }), tree(ov.report)),
+    h("section", {}, h("h3", { text: "Configuration" }), h("p", { class: "muted", text: "Edit the JSON and save; the server validates every field and rejects bad values. Secrets are never shown (only whether they are set)." }), ta,
+      h("div", { class: "row" }, h("button", { text: "Save config", onclick: busy(null, async () => { let b; try { b = JSON.parse(ta.value); } catch (e) { return toast("Not valid JSON", true); } if (await act(() => api("POST", "/ads/config", b), "Config saved")) go("ads"); }) })), h("h3", { text: "Secrets / IDs" }), tree({ secrets_set: cf.secrets_set, env_ids: cf.env_ids })),
+    h("section", {}, h("h3", { text: "Confirmed revenue" }), h("div", { class: "row" }, field("Day", day), field("Network", net), field("Revenue (USD)", rev), h("button", { text: "Save", onclick: busy(null, async () => { await act(() => api("POST", "/ads/revenue", { day: day.value, network: net.value, revenue_usd: +rev.value }), "Saved"); }) }))),
+    h("section", {}, h("h3", { text: "Recent rewards" }), tree(rw.rewards)));
+};
+VIEWS.monetag = async (v) => {
+  const d = await api("GET", "/monetag/report?days=7"), day = h("input", { type: "date" }), zone = h("select", {}, ["all", ...d.zones].map((z) => h("option", { value: z, text: z }))), rev = h("input", { type: "number", step: "0.01", min: "0", placeholder: "USD" });
+  render(v, h("h2", { text: "Monetag" }), h("section", {}, h("h3", { text: "Report - last 7 days" }), tree(d.report)),
+    h("section", {}, h("h3", { text: "Confirmed revenue (from the Monetag dashboard)" }), h("div", { class: "row" }, field("Day", day), field("Zone", zone), field("Revenue (USD)", rev), h("button", { text: "Save", onclick: busy(null, async () => { await act(() => api("POST", "/monetag/confirmed", { day: day.value, zone: zone.value, revenue_usd: +rev.value }), "Saved"); go("monetag"); }) }))));
+};
+
+/* ---------- Settings / Activity ---------- */
+VIEWS.settings = async (v) => {
+  const d = await api("GET", "/settings");
+  render(v, h("h2", { text: "Settings" }), h("p", { class: "muted", text: d.note }), d.groups.map((g) => h("section", {}, h("h3", { text: g.group }),
+    table(["Variable", "Status", "Value"], g.vars.map((x) => [h("code", { text: x.name }), x.set ? tag("set", "ok") : tag("not set", x.secret ? "warn" : ""), x.secret ? h("span", { class: "muted", text: x.set ? "hidden" : "" }) : (x.value !== undefined ? x.value : "")])))));
+};
+const ACT = { skip: 0 };
+VIEWS.activity = async (v) => {
+  const d = await api("GET", "/activity?limit=50&skip=" + ACT.skip);
+  render(v, h("h2", { text: "Admin activity log" }), h("section", {}, table(["When", "Action", "Result", "IP", "Details"], d.items.map((a) => [fmt(a.ts), a.action, a.ok ? tag("ok", "ok") : tag("failed", "bad"), a.ip, h("code", { text: JSON.stringify(a.detail) })])),
+    h("div", { class: "row" }, h("button", { class: "ghost sm", text: "‹ Newer", disabled: ACT.skip ? null : "", onclick: () => { ACT.skip = Math.max(0, ACT.skip - 50); go("activity"); } }), h("button", { class: "ghost sm", text: "Older ›", disabled: d.items.length < 50 ? "" : null, onclick: () => { ACT.skip += 50; go("activity"); } }))));
+};
+
+/* ---------- boot ---------- */
+async function start() { shell(); }
+(async () => {
+  try { const d = await api("GET", "/session"); S.csrf = d.csrf; S.totp = d.totp; start(); }
+  catch (e) { /* 401 handler already showed the login form */ if (!S.csrf && !$(".login")) showLogin(false); }
+})();
+</script>
+</body>
+</html>
