@@ -48,6 +48,9 @@ from delivery import send_file
 from manager import BotManager
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
+# Bot token URLs me hota hai, isliye httpx request logs band
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 
 class _RedactSecrets(logging.Filter):
