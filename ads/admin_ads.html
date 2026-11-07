@@ -75,6 +75,13 @@
     <div class="legend" id="legend"></div>
     <p class="note" id="chartnote"></p>
   </section>
+  <section id="earn-sec" hidden>
+    <h2>Earnings engine</h2>
+    <div id="hints"></div>
+    <p class="lead" id="earnline"></p>
+    <div class="tablewrap"><table id="earn"></table></div>
+    <p class="note">Value = what one verified impression is worth. <em>confirmed</em> = your entered revenue ÷ our verified impressions, <em>your figure</em> = the eCPM you typed under Networks, <em>assumed</em> = borrowed from the other networks (never higher). Traffic share is simulated from the live model; every eligible network keeps a small minimum so it keeps being tested.</p>
+  </section>
   <section id="nets-sec" hidden>
     <h2>Network comparison</h2>
     <div class="tablewrap"><table id="nets"></table></div>
@@ -89,6 +96,7 @@
         <label><input type="radio" name="mode" value="manual"> Manual</label></div>
       <div class="row" id="manualrow"><label>Manual network <select id="manual"></select></label></div>
       <div><strong>Priority order</strong> <span class="note">(used for fixed mode, cold start and ties)</span><ol class="prio" id="prio"></ol></div>
+      <div class="row"><label>Automatic strategy <select id="strategy"><option value="thompson">Max earnings (learns from revenue)</option><option value="weighted">Classic weighted score</option></select></label></div>
       <div class="row"><label><input type="checkbox" id="fallback"> Fall back to the next network when an ad can't be shown</label></div>
       <div class="row"><label>Max attempts <select id="maxatt"><option>1</option><option>2</option><option>3</option></select></label></div>
       <p class="note">A fallback only happens if the previous network never displayed an ad. A user is never shown two rewarded ads for one request.</p>
@@ -219,10 +227,40 @@
     t.appendChild(tb); $("nets-sec").hidden = false;
   }
 
+  var BASIS = { confirmed: "confirmed", owner: "your figure", monetag_estimate: "estimate", assumed: "assumed", none: "unknown", unavailable: "unknown" };
+  function renderEarnings(rep) {
+    var h = $("hints"); h.textContent = "";
+    (rep.hints || []).forEach(function (t) { h.appendChild(el("p", { class: "note", text: "💡 " + t })); });
+    var e = rep.earnings || {};
+    $("earnline").textContent = e.expected_per_1000_requests_usd == null ? "Expected earnings appear after the first optimizer run (every few minutes)."
+      : "Expected " + usd(e.expected_per_1000_requests_usd, 4) + " per 1,000 requests" + (e.uplift_pct != null ? " (" + (e.uplift_pct >= 0 ? "+" : "") + e.uplift_pct + "% vs splitting traffic equally)" : "") + ".";
+    var t = $("earn"); t.textContent = "";
+    var cols = ["Network", "Gets traffic?", "Value / 1000 imp.", "Value basis", "P(verified)", "Expected / 1000 req.", "Traffic share"];
+    t.appendChild(el("thead", {}, [el("tr", {}, cols.map(function (c) { return el("th", { text: c }); }))]));
+    var tb = el("tbody");
+    NETS.forEach(function (n) {
+      var b = rep.networks[n], x = b.expected || {}, tr = el("tr");
+      var name = el("td", {}, [el("span", { class: "dot" }), document.createTextNode(b.label)]); name.firstChild.style.background = COLORS[n]; tr.appendChild(name);
+      var ok = !b.blockers.length;
+      tr.appendChild(el("td", { class: ok ? "st-healthy" : "st-not_configured", text: ok ? (x.probation ? "yes (probation)" : "yes") : "no: " + b.blockers_text.join(", ") }));
+      tr.appendChild(el("td", { text: usd(x.value_per_1000_usd, 4) }));
+      var bt = el("td", { text: BASIS[x.basis] || "unknown" });
+      if (x.basis === "confirmed") bt.appendChild(tag("confirmed", "real"));
+      if (x.basis === "monetag_estimate" || x.basis === "owner") bt.appendChild(tag("estimate", "unmeasured"));
+      tr.appendChild(bt);
+      tr.appendChild(el("td", { text: pct(x.p_verified) }));
+      tr.appendChild(el("td", { text: usd(x.ev_per_1000_requests_usd, 4) }));
+      tr.appendChild(el("td", { text: x.share == null ? "—" : pct(x.share) }));
+      tb.appendChild(tr);
+    });
+    t.appendChild(tb); $("earn-sec").hidden = false;
+  }
+
   function renderConfig(c) {
     cfg = c; prio = c.priority.slice();
     document.querySelectorAll('input[name="mode"]').forEach(function (r) { r.checked = r.value === c.mode; });
     var man = $("manual"); man.textContent = ""; NETS.forEach(function (n) { var o = el("option", { value: n, text: n }); if (c.manual_network === n) o.selected = true; man.appendChild(o); });
+    $("strategy").value = c.strategy || "thompson";
     $("fallback").checked = !!c.fallback_enabled; $("maxatt").value = String(c.max_attempts);
     renderPrio();
     var nc = $("netcfg"); nc.textContent = "";
@@ -231,14 +269,19 @@
       var row = el("div", { class: "row" }, [el("strong", { text: n })]);
       var en = el("input", { type: "checkbox", "data-net": n, "data-k": "enabled" }); en.checked = v.enabled; row.appendChild(el("label", {}, [en, document.createTextNode("Enabled")]));
       var al = el("input", { type: "checkbox", "data-net": n, "data-k": "allow_client_reward" }); al.checked = v.allow_client_reward; row.appendChild(el("label", {}, [al, document.createTextNode("Allow client-attested rewards")]));
+      var ec = el("input", { type: "number", min: 0, step: "any", style: "width:90px", "data-net": n, "data-k": "ecpm_usd", placeholder: "optional" }); ec.value = v.ecpm_usd == null ? "" : v.ecpm_usd;
+      row.appendChild(el("label", {}, [document.createTextNode("Your eCPM $/1000 "), ec]));
       if (idLabel) { var idi = el("input", { type: "text", size: 14, "data-net": n, "data-k": "unit_id", placeholder: idLabel + " (blank = use env)" }); idi.value = v.unit_id || ""; row.appendChild(el("label", {}, [document.createTextNode(idLabel + " "), idi])); }
       nc.appendChild(row);
     });
     var oc = $("optcfg"); oc.textContent = "";
     var o = c.optimization, defs = [["window_days", "Window (days)"], ["recent_hours", "Recent window (hours, max 48)"], ["min_requests", "Min requests before a network is ranked"], ["min_revenue_impressions", "Min impressions before revenue counts"],
-      ["explore_share", "Exploration share (0–0.5)"], ["cooldown_minutes", "Cooldown after failures (min)"], ["fail_threshold", "Failure rate that triggers cooldown"], ["fail_min_attempts", "Min attempts before cooldown can trigger"]];
+      ["explore_share", "Exploration share (0–0.5)"], ["cooldown_minutes", "Cooldown after failures (min)"], ["fail_threshold", "Failure rate that triggers cooldown"], ["fail_min_attempts", "Min attempts before cooldown can trigger"],
+      ["half_life_days", "Max-earnings: memory half-life (days)"], ["prior_strength", "Max-earnings: caution for new networks (pseudo-requests)"], ["min_share", "Max-earnings: minimum share per network (0–0.2)"], ["probation_share", "Max-earnings: share cap after a cooldown (0.01–0.5)"]];
     defs.forEach(function (d) { var i = el("input", { type: "number", step: "any", style: "width:100px", "data-opt": d[0] }); i.value = o[d[0]]; oc.appendChild(el("div", { class: "row" }, [el("label", {}, [document.createTextNode(d[1] + " "), i])])); });
-    var wr = el("div", { class: "row" }, [el("strong", { text: "Score weights" })]);
+    var ub = el("input", { type: "checkbox", "data-optb": "use_monetag_estimate" }); ub.checked = !!o.use_monetag_estimate;
+    oc.appendChild(el("div", { class: "row" }, [el("label", {}, [ub, document.createTextNode("Use Monetag's postback estimate as revenue when nothing else is known (an estimate, not a payout)")])]));
+    var wr = el("div", { class: "row" }, [el("strong", { text: "Classic score weights (weighted strategy only)" })]);
     Object.keys(o.weights).forEach(function (k) { var i = el("input", { type: "number", min: 0, max: 1, step: "0.05", style: "width:70px", "data-w": k }); i.value = o.weights[k]; wr.appendChild(el("label", {}, [document.createTextNode(k + " "), i])); });
     oc.appendChild(wr);
     var rn = $("rv-net"); if (!rn.children.length) NETS.forEach(function (n) { rn.appendChild(el("option", { value: n, text: n })); });
@@ -271,7 +314,7 @@
     msg("Loading…");
     try {
       var rep = await call("/admin/ads/api/overview?days=" + $("days").value);
-      renderSummary(rep); renderChart(rep); renderTable(rep); renderConfig(rep.config);
+      renderSummary(rep); renderChart(rep); renderEarnings(rep); renderTable(rep); renderConfig(rep.config);
       renderRewards((await call("/admin/ads/api/rewards?limit=25")).rewards);
       msg("Updated " + new Date().toLocaleTimeString() + ". " + rep.notes[0], "");
     } catch (e) { msg(e.status === 403 ? "Wrong token." : e.status === 404 ? "Admin API is disabled (set ADS_ADMIN_TOKEN)." : e.message, "err"); }
@@ -286,13 +329,13 @@
   document.querySelectorAll('input[name="mode"]').forEach(function (r) { r.onchange = function () { $("manualrow").hidden = r.value !== "manual"; }; });
   $("save-routing").onclick = function () {
     var mode = document.querySelector('input[name="mode"]:checked').value;
-    save({ mode: mode, manual_network: mode === "manual" ? $("manual").value : (cfg && cfg.manual_network) || null, priority: prio, fallback_enabled: $("fallback").checked, max_attempts: Number($("maxatt").value) }, "Routing");
+    save({ mode: mode, manual_network: mode === "manual" ? $("manual").value : (cfg && cfg.manual_network) || null, priority: prio, strategy: $("strategy").value, fallback_enabled: $("fallback").checked, max_attempts: Number($("maxatt").value) }, "Routing");
   };
   $("save-nets").onclick = function () {
     var p = { networks: {} };
     document.querySelectorAll("[data-net]").forEach(function (i) {
       var n = i.getAttribute("data-net"), k = i.getAttribute("data-k"); p.networks[n] = p.networks[n] || {};
-      p.networks[n][k] = i.type === "checkbox" ? i.checked : i.value.trim();
+      p.networks[n][k] = i.type === "checkbox" ? i.checked : k === "ecpm_usd" ? (i.value.trim() === "" ? null : Number(i.value)) : i.value.trim();
     });
     NETS.forEach(function (n) { if (n === "monetag") delete p.networks[n].unit_id; });
     save(p, "Networks");
@@ -300,6 +343,7 @@
   $("save-opt").onclick = function () {
     var o = { weights: {} };
     document.querySelectorAll("[data-opt]").forEach(function (i) { o[i.getAttribute("data-opt")] = Number(i.value); });
+    document.querySelectorAll("[data-optb]").forEach(function (i) { o[i.getAttribute("data-optb")] = i.checked; });
     document.querySelectorAll("[data-w]").forEach(function (i) { o.weights[i.getAttribute("data-w")] = Number(i.value); });
     save({ optimization: o }, "Optimization");
   };
