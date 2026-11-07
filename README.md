@@ -60,16 +60,29 @@ No AdsGram/Tads API key is needed (neither documents a reporting API); block/wid
 
 ## How smart rotation works
 * **Request**: `/api/smart/start` builds an ordered chain of eligible networks (enabled, configured, reward-trust allowed, not cooling down).
-* **Modes**: `auto` (performance-weighted), `priority` (fixed order), `manual` (forced first pick; others remain fallback). Configurable fallback and attempts (1–3).
-* **Scoring** (rolling `window_days`, default 7): weighted blend of revenue-per-request, fill rate, completion rate, (1 − error rate), recent yield (weights editable).
-  * A network is ranked only after `min_requests` (100) in the window; below that it is *explored* with a small share (`explore_share` 15%, unmeasured networks get 2×).
-  * Revenue counts **only when ≥2 networks have owner-confirmed revenue with ≥`min_revenue_impressions`**; values are shrunk toward the pooled mean.
-    Otherwise the revenue weight is dropped and reliability decides. Monetag's postback estimate is shown but never compared with confirmed revenue.
-  * Cold start (no data): priority-weighted random.
-* **Health**: ≥`fail_min_attempts` attempts with ≥`fail_threshold` failures in `cooldown_minutes` ⇒ network benched; if everything is benched the least-bad still serve.
+* **Modes**: `auto` (performance-based), `priority` (fixed order), `manual` (forced first pick; others remain fallback). Configurable fallback and attempts (1–3).
+* **Automatic strategies** (`strategy`):
+  * **`thompson` — Max earnings (default).** Goal: maximise `P(verified) × value of one verified impression`.
+    * `P(verified)` is a Beta posterior over **time-decayed** evidence (`half_life_days`, default 3), shrunk toward the pooled rate (`prior_strength`) so a few impressions can't swing the ranking.
+    * Value per impression, best real source first: **confirmed** (revenue you entered ÷ our verified impressions, shrunk toward your prior) → **your eCPM** (`networks.<n>.ecpm_usd`, labelled "your figure") →
+      optional **Monetag postback estimate** (`use_monetag_estimate`, labelled estimate) → **assumed** (borrows the average of known networks, never higher) → none (ranks on conversion only).
+    * Thompson sampling explores in proportion to uncertainty: a probably-worse network fades out on its own, a possibly-better one keeps being tested. `min_share` (3%) guarantees nobody is starved.
+    * The fallback chain is ordered by expected value, not by static priority.
+  * `weighted` — the previous score blend (revenue, fill, completion, errors, recent) with `explore_share`. Kept for people who want it.
+* **Circuit breaker**: ≥`fail_min_attempts` attempts with ≥`fail_threshold` hard failures in `cooldown_minutes` ⇒ network benched. Repeat offences **back off ×2, ×4, ×8**. When a cool-down ends the network
+  re-enters on **probation** (share capped at `probation_share`) and strikes are forgiven after a clean, busy window. If everything is benched the least-bad still serve.
 * **One ad per request**: one atomic "ad slot" per session; a fallback is issued **only if the previous attempt never displayed an ad**. An ad that displayed and then
   failed/was closed never chains another ad; the user retries manually.
-* The optimizer runs every `ADS_OPT_INTERVAL`s under a DB lease (safe with multiple instances) and also expires stuck attempts.
+* The optimizer runs every `ADS_OPT_INTERVAL`s under a DB lease (safe with multiple instances), stores the model + simulated traffic shares in the `plan` document and expires stuck attempts.
+
+### "Rotation does nothing" — check this first
+By default **only Monetag is eligible**: AdsGram and Tads are off, and Tads/AdsGram without a server-verifiable reward are blocked unless you allow client-attested rewards. With one eligible network there is nothing to rotate.
+The admin dashboard (**Earnings engine** panel) now lists, per network, exactly why it gets no traffic (`switched off`, `no block/widget ID set`, `reward can't be server-verified…`, `cooling down`) and prints hints.
+
+### Getting the most out of it
+1. Enable and configure at least two networks (Networks box).
+2. Tell it what each network pays: type your **eCPM** per network, and/or enter **daily revenue** from each network's dashboard (Revenue box). Real data replaces your figure automatically.
+3. Leave strategy on *Max earnings*. Expect the first hundreds of requests to be spread out while it learns; the dashboard shows the expected earnings per 1,000 requests and the uplift vs an equal split.
 
 ## Reward verification
 | Network | Signal | Trust label | Notes |
@@ -101,7 +114,9 @@ Indexes/TTLs: `ads/migrate.py` (idempotent; touches no existing collection). Exi
 `./run_tests.sh` (tests/ was missing from the zip you sent and has been recreated). Covered: scoring/selection, verification decisions, config validation,
 start/fallback/one-ad-per-request, duplicate and concurrent reward claims, wrong user/session, AdsGram hit single-use/user-bound/time-bound, invalid postbacks/Reward-URL calls,
 revenue/eCPM math (confirmed vs estimated vs unavailable), admin auth/lockout/validation, HTTP handlers + delivery tail, route registration, panel toggles, migration idempotency,
-all three browser adapters with mocked SDKs (completion, skip, no-fill, errors, timeouts, click ≠ completion).
+all three browser adapters with mocked SDKs (completion, skip, no-fill, errors, timeouts, click ≠ completion),
+max-earnings engine (`tests/test_bandit.py`: time decay, value sources, Thompson picks, per-network floor, probation cap, a closed-loop simulation that must beat an equal split by ≥40%,
+back-off ×2 → probation → forgiveness, "why no traffic" diagnostics, earnings report).
 **Not run here**: real FastAPI, real MongoDB (an in-memory fake was used, so atomicity of `find_one_and_update` is relied upon, not proven), python-telegram-bot callback glue
 (only the pure panel builders are tested), any live ad network.
 
